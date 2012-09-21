@@ -51,12 +51,12 @@ public class ThuthuriMain
 		    if (!line.hasOption("m") || !line.hasOption("d"))
 		    {
 		    	System.out.println("'m' and 'd' are mandatory arguments , usage is as below");
-		    	formatter.printHelp("eek",options);
+		    	formatter.printHelp("muz",options);
 				return;
 		    }
 		    
 		    if( line.hasOption( "h" ) ) {
-				formatter.printHelp( "eek", options );
+				formatter.printHelp( "muz", options );
 				return;
 		    }
 		    
