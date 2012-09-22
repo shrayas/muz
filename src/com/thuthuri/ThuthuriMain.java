@@ -25,7 +25,7 @@ public class ThuthuriMain
 		try
 		{
 			
-			String proxyHost = "" , proxyPort = "" , destinationDir = "", manga = "";
+			String proxyHost = "" , proxyPort = "" , proxyUsername = "", proxyPassword = "", destinationDir = "", manga = "";
 			
 			// GNU parser is better at parsing out options > 1 char long
 			CommandLineParser parser = new GnuParser();
@@ -37,6 +37,8 @@ public class ThuthuriMain
 			options.addOption("h","help",false,"show help");
 			options.addOption("ph","proxyhost",true,"proxy host to pass through");
 			options.addOption("pp","proxyport",true,"proxy port to pass through");
+			options.addOption("pu","proxyusername",true,"username to use to authenticate proxy");
+			options.addOption("pw","proxypassword",true,"proxy password");
 			options.addOption("m","manga",true,"manga to download (name should be same as in mangareader.net)");
 			options.addOption("d","destinationdirectory",true,"destination directory to dump to");
 			
@@ -46,103 +48,202 @@ public class ThuthuriMain
 			// parse the command line arguments
 		    CommandLine line = parser.parse( options, args );
 
-			// If number of arguments are lesser than 6 (all args required) , display help and quit
-		    
+			// If *m* and *d* aren't among the arguments , then do not proceed
 		    if (!line.hasOption("m") || !line.hasOption("d"))
 		    {
 		    	System.out.println("'m' and 'd' are mandatory arguments , usage is as below");
-		    	formatter.printHelp("muz",options);
+		    	formatter.printHelp("muz [options]",options);
 				return;
 		    }
 		    
+		    // display help
 		    if( line.hasOption( "h" ) ) {
 				formatter.printHelp( "muz", options );
 				return;
 		    }
 		    
 		    // for each option , store the value inside the variables required
-		    
+		    // Proxy Host
 		    if( line.hasOption("ph")) {
 		    	proxyHost = line.getOptionValue( "ph" ).toString();
 		    }
 		    
+		    // Proxy Port
 		    if( line.hasOption( "pp" ) ) {
 		    	proxyPort = line.getOptionValue( "pp" ).toString();
 		    }
 		    
+		    // Proxy username
+		    if( line.hasOption( "pu" ) ) {
+		    	proxyUsername = line.getOptionValue( "pu" ).toString();
+		    }
+		    
+		    // Proxy password
+		    if( line.hasOption( "pw" ) ) {
+		    	proxyPassword = line.getOptionValue( "pw" ).toString();
+		    }
+		    
+		    // destination directory
 		    if (line.hasOption("d")){
 		    	destinationDir = line.getOptionValue("d").toString();
 		    }
 		    
+		    // manga
 		    if (line.hasOption("m")){
 		    	manga = line.getOptionValue("m").toString();
 		    }
 		    
+		    // Set the proxy details
 			System.setProperty("http.proxyHost", proxyHost);
 			System.setProperty("http.proxyPort", proxyPort);
+			System.setProperty("http.proxyUser", proxyPort);
+			System.setProperty("http.proxyPassword", proxyPort);
 
+			// Set the base url - Only downloads from mangareader
 			String baseUrl = "http://www.mangareader.net";
+			
+			// set the destination directory
 			String saveBaseFolder = destinationDir;
+			
+			System.out.println("Downloading "+manga+" from "+(baseUrl + "/" + manga));
 
+			/*
+			 *  connect and download the page for the manga
+			 *  Eg: http://www.mangareader.net/naruto 
+			 */
 			Document doc = Jsoup.connect(baseUrl + "/" + manga).get();
 
-			System.out.println(doc.title());
+			/*
+			 * Get the list of chapters and links
+			 * In a table specified with the id *listing* take the first *td* and take the *a* tag inside it
+			 */
+			Elements chapters = doc.select("#listing td:lt(1)");
+			
+			// Print the amount of chapters
+			int noOfChapters = chapters.size();
 
-			Elements chapters = doc.select("#listing td:lt(1) a");
-
+			// Log the start time
 			long start = System.currentTimeMillis();
 			
+			// chapter count
+			int chapI = 0;
+			
+			// Iterate over the list of chapters
 			for (Element chapter : chapters)
 			{
-				String chapterName = chapter.text();
 				
-				String dirName = saveBaseFolder + "//" + chapterName;
+				System.out.println("\n("+(chapI+1)+"/"+noOfChapters+")");
+
+				// pick up the chapter text
+				String chapterText = chapter.text();
 				
+				// split it at the colon
+				String[] chapterParts = chapterText.split(":");
+				
+				// get the chapter number
+				String chapterNumber = chapterParts[0].trim();
+				
+				// get the chapter name
+				String chapterName = chapterParts[1].trim();
+				
+				// construct the directory name
+				String directoryName = chapterNumber + " - " + chapterName;
+				
+				// get the absolute directory name
+				String dirName = saveBaseFolder + "//" + directoryName;
+				
+				// create the directory
 				boolean success = (new File(dirName)).mkdir();
 				
+				// if creation was a failure 
 				if (!success)
 				{
+					// throw an exception 
 					throw new Exception("Problem with directories");
 				}
 				
-				String chapterHref = chapter.attr("href");
+				// get the chapter link
+				String chapterHref = chapter.select("a").attr("href");
 
+				// construct the absolute url
 				String chapterUrl = baseUrl + chapterHref;
 
+				// get the chapter document
 				Document chapterDoc = Jsoup.connect(chapterUrl).get();
 
+				// in the document , get the select specified by the *pageMenu* id and get the list of options under it
 				Elements pages = chapterDoc.select("#pageMenu option");
-
+				
+				int noOfPages = pages.size();
+				
+				// initialize the page number
 				int pageNo = 1;
 				
+				// set a page percent count
+				int pageI = 0;
+				
+				int pagePercent = 0;
+				
+				// Iterate on the list of pages
 				for (Element page : pages)
 				{
+					
+					// calculate percent of chapter downloaded
+					pagePercent = (int)((pageI / (double) noOfPages) * 100.00);
+					
+					// print a progress bar
+					printProgressBar(pagePercent);
+					
+					// get the page url
 					String pageHref = page.attr("value");
 
+					// create the absolute url
 					String imageHref = baseUrl + pageHref;
 
+					// get the image document
 					Document imageDoc = Jsoup.connect(imageHref).get();
 
+					// get the image element ( represented by the tag with *img* id ) 
 					Element image = imageDoc.select("#img").first();
 
+					// get the source of the image
 					String imageUrl = image.attr("src");
 
+					// construct the filename
 					String fileName = dirName + "//" + pageNo + ".jpg";
 					
+					// save the image
 					saveImage(imageUrl,fileName);
 					
+					// increment the page number
 					pageNo++;
+					
+					// increment the page count
+					pageI++;
 
 				}
+				
+				pagePercent = (int)((pageI / (double) noOfPages) * 100.00);
+				
+				printProgressBar(pagePercent);
+				
+				
+				// Increment the chapter count
+				chapI++;
 
-				break;
+				/*
+				if (chapI == 5)
+					break;
+				 */
 			}
 			
+			// log the end
 			long end = System.currentTimeMillis();
 			
+			// get the difference 
 			long diff = end - start;
 			
-			System.out.println("Took "+(diff/1000)+" seconds");
+			System.out.println("\n"+(diff/1000)+" seconds");
 		}
 
 		catch (Exception ex)
@@ -158,12 +259,15 @@ public class ThuthuriMain
 			URL url = new URL(imageUrl);
 			InputStream in = new BufferedInputStream(url.openStream());
 			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			
 			byte[] buf = new byte[1024];
 			int n = 0;
+			
 			while (-1 != (n = in.read(buf)))
 			{
 				out.write(buf, 0, n);
 			}
+			
 			out.close();
 			in.close();
 			byte[] response = out.toByteArray();
@@ -172,10 +276,37 @@ public class ThuthuriMain
 			fos.write(response);
 			fos.close();
 		}
+		
 		catch (Exception ex)
 		{
 			ex.printStackTrace();
 		}
+	}
+	
+	private static void printProgressBar(int percent)
+	{
+	    StringBuilder bar = new StringBuilder("[");
+
+	    for(int i = 0; i < 50; i++)
+	    {
+	        if( i < (percent/2))
+	        {
+	            bar.append("=");
+	        }
+	        
+	        else if( i == (percent/2))
+	        {
+	            bar.append(">");
+	        }
+	        
+	        else
+	        {
+	            bar.append(" ");
+	        }
+	    }
+
+	    bar.append("]   " + percent + "%");
+	    System.out.print("\r" + bar.toString());
 	}
 
 }
