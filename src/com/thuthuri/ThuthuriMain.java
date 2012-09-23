@@ -26,6 +26,7 @@ public class ThuthuriMain
 		{
 			
 			String proxyHost = "" , proxyPort = "" , proxyUsername = "", proxyPassword = "", destinationDir = "", manga = "";
+			int from = 1, to = -1;
 			
 			// GNU parser is better at parsing out options > 1 char long
 			CommandLineParser parser = new GnuParser();
@@ -35,12 +36,14 @@ public class ThuthuriMain
 			
 			// Add the required set of options to be tracked
 			options.addOption("h","help",false,"show help");
-			options.addOption("ph","proxyhost",true,"proxy host to pass through");
-			options.addOption("pp","proxyport",true,"proxy port to pass through");
-			options.addOption("pu","proxyusername",true,"username to use to authenticate proxy");
-			options.addOption("pw","proxypassword",true,"proxy password");
+			options.addOption("ph","proxy-host",true,"proxy host to pass through");
+			options.addOption("pp","proxy-port",true,"proxy port to pass through");
+			options.addOption("pu","proxy-username",true,"username to use to authenticate proxy");
+			options.addOption("pw","proxy-password",true,"proxy password");
 			options.addOption("m","manga",true,"manga to download (name should be same as in mangareader.net)");
-			options.addOption("d","destinationdirectory",true,"destination directory to dump to");
+			options.addOption("f","from-chapter",true,"which chapter to download from");
+			options.addOption("t","to-chapter",true,"which chapter to download till");
+			options.addOption("d","destination-directory",true,"destination directory to dump to");
 			
 			// Format the help out of the options defined
 			HelpFormatter formatter = new HelpFormatter();
@@ -93,6 +96,16 @@ public class ThuthuriMain
 		    	manga = line.getOptionValue("m").toString();
 		    }
 		    
+		    // from
+		    if (line.hasOption("f")){
+		    	from = Integer.parseInt(line.getOptionValue("f").toString());
+		    }
+		    
+		    // to
+		    if (line.hasOption("t")){
+		    	to = Integer.parseInt(line.getOptionValue("t").toString());
+		    }
+		    
 		    // Set the proxy details
 			System.setProperty("http.proxyHost", proxyHost);
 			System.setProperty("http.proxyPort", proxyPort);
@@ -121,33 +134,53 @@ public class ThuthuriMain
 			
 			// Print the amount of chapters
 			int noOfChapters = chapters.size();
+			
+			if (to == -1)
+				to = noOfChapters;
 
 			// Log the start time
 			long start = System.currentTimeMillis();
 			
 			// chapter count
-			int chapI = 0;
+			int currentChapterIndex = 1;
+			
+			System.out.println("Downloading chapters from " +from+ " to "+to);
+
 			
 			// Iterate over the list of chapters
-			for (Element chapter : chapters)
+			for (int i=(from-1); i<to;i++)
 			{
 				
-				System.out.println("\n("+(chapI+1)+"/"+noOfChapters+")");
+				Element chapter = chapters.get(i);
+
+				/*
+				// the boundary logic
+				if (currentChapterIndex < from)
+					continue;
+				else if (currentChapterIndex > to)
+					break;
+				*/
+				
+				System.out.println("\n("+(currentChapterIndex)+"/"+noOfChapters+")");
 
 				// pick up the chapter text
 				String chapterText = chapter.text();
 				
-				// split it at the colon
-				String[] chapterParts = chapterText.split(":");
+				String[] chapterTextParts = chapterText.trim().split(":");
 				
-				// get the chapter number
-				String chapterNumber = chapterParts[0].trim();
+				String chapterName = "";
 				
-				// get the chapter name
-				String chapterName = chapterParts[1].trim();
+				if (chapterTextParts.length > 1)
+				{
+					chapterName = " [ "+ chapterTextParts[1] + " ]";
+				}
+				
+				String mangaNameChapterNumber = chapterTextParts[0];
+				
+				String chapterNumber = mangaNameChapterNumber.trim().split(" ")[1];
 				
 				// construct the directory name
-				String directoryName = chapterNumber + " - " + chapterName;
+				String directoryName = chapterNumber + chapterName;
 				
 				// get the absolute directory name
 				String dirName = saveBaseFolder + "//" + directoryName;
@@ -229,7 +262,7 @@ public class ThuthuriMain
 				
 				
 				// Increment the chapter count
-				chapI++;
+				currentChapterIndex++;
 
 				/*
 				if (chapI == 5)
