@@ -43,6 +43,7 @@ public class ThuthuriMain
 			options.addOption("m","manga",true,"manga to download (name should be same as in mangareader.net)");
 			options.addOption("f","from-chapter",true,"which chapter to download from");
 			options.addOption("t","to-chapter",true,"which chapter to download till");
+			//options.addOption("c","chapters",true,"comma seperated values of chapters to get");
 			options.addOption("d","destination-directory",true,"destination directory to dump to");
 			
 			// Format the help out of the options defined
@@ -128,7 +129,7 @@ public class ThuthuriMain
 
 			/*
 			 * Get the list of chapters and links
-			 * In a table specified with the id *listing* take the first *td* and take the *a* tag inside it
+			 * In a table specified with the id *listing* take the first *td* 
 			 */
 			Elements chapters = doc.select("#listing td:lt(1)");
 			
@@ -172,12 +173,17 @@ public class ThuthuriMain
 				
 				if (chapterTextParts.length > 1)
 				{
-					chapterName = " [ "+ chapterTextParts[1] + " ]";
+					chapterName = " [ "+ chapterTextParts[1].trim() + " ]";
+					
+					if (chapterName.contains("?"))
+						chapterName.replace("?", "");
 				}
 				
-				String mangaNameChapterNumber = chapterTextParts[0];
+				//String mangaNameChapterNumber = chapterTextParts[0];
 				
-				String chapterNumber = mangaNameChapterNumber.trim().split(" ")[1];
+				//String chapterNumber = mangaNameChapterNumber.trim().split(" ")[1];
+				
+				String chapterNumber = ""+(i+1);
 				
 				// construct the directory name
 				String directoryName = chapterNumber + chapterName;
